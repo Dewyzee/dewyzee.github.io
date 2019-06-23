@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<!-- Head tag -->
+<head><meta name="generator" content="Hexo 3.8.0">
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="google-site-verification" content="xBT4GhYoi5qRD5tr338pgPM5OWHHIDR6mNg1a3euekI">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="">
+    <meta name="keyword" content="">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+
+    <title>
+        
+          Redux工作原理初探 - Xutao的博客 | Xutao&#39;s Blog
+        
+    </title>
+
+    <link rel="canonical" href="https://dewyzee.github.io/2019/01/20/How-Redux-Works/">
+
+    <!-- Bootstrap Core CSS -->
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/css/hux-blog.min.css">
+
+    <!-- Pygments Highlight CSS -->
+    <link rel="stylesheet" href="/css/highlight.css">
+
+    <!-- Custom Fonts -->
+    <!-- <link href="https://maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css" rel="stylesheet" type="text/css"> -->
+    <!-- Hux change font-awesome CDN to qiniu -->
+    <link href="https://cdn.staticfile.org/font-awesome/4.5.0/css/font-awesome.min.css" rel="stylesheet" type="text/css">
+
+
+    <!-- Hux Delete, sad but pending in China
+    <link href='http://fonts.googleapis.com/css?family=Lora:400,700,400italic,700italic' rel='stylesheet' type='text/css'>
+    <link href='http://fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,800italic,400,300,600,700,800' rel='stylesheet' type='text/
+    css'>
+    -->
+
+
+    <!-- HTML5 Shim and Respond.js IE8 support of HTML5 elements and media queries -->
+    <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+    <!--[if lt IE 9]>
+        <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
+        <script src="https://oss.maxcdn.com/libs/respond.js/1.4.2/respond.min.js"></script>
+    <![endif]-->
+
+    <!-- ga & ba script hoook -->
+    <script></script>
+</head>
+
+
+<!-- hack iOS CSS :active style -->
+<body ontouchstart="">
+
+    <!-- Navigation -->
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+    <div class="container-fluid">
+        <!-- Brand and toggle get grouped for better mobile display -->
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">Dewyzee&#39;s Blog</a>
+        </div>
+
+        <!-- Collect the nav links, forms, and other content for toggling -->
+        <!-- Known Issue, found by Hux:
+            <nav>'s height woule be hold on by its content.
+            so, when navbar scale out, the <nav> will cover tags.
+            also mask any touch event of tags, unfortunately.
+        -->
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">Home</a>
+                    </li>
+
+                    
+
+                        
+                    
+
+                        
+                        <li>
+                            <a href="/about/">About</a>
+                        </li>
+                        
+                    
+
+                        
+                        <li>
+                            <a href="/archives/">Archives</a>
+                        </li>
+                        
+                    
+
+                        
+                        <li>
+                            <a href="/tags/">Tags</a>
+                        </li>
+                        
+                    
+                    
+                </ul>
+            </div>
+        </div>
+        <!-- /.navbar-collapse -->
+    </div>
+    <!-- /.container -->
+</nav>
+<script>
+    // Drop Bootstarp low-performance Navbar
+    // Use customize navbar with high-quality material design animation
+    // in high-perf jank-free CSS3 implementation
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    $toggle.addEventListener('click', handleMagic)
+    function handleMagic(e){
+        if ($navbar.className.indexOf('in') > 0) {
+        // CLOSE
+            $navbar.className = " ";
+            // wait until animation end.
+            setTimeout(function(){
+                // prevent frequently toggle
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        }else{
+        // OPEN
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+</script>
+
+
+    <!-- Main Content -->
+    
+<!-- Image to hack wechat -->
+<!-- <img src="https://dewyzee.github.io/img/icon_wechat.png" width="0" height="0"> -->
+<!-- <img src="{{ site.baseurl }}/{% if page.header-img %}{{ page.header-img }}{% else %}{{ site.header-img }}{% endif %}" width="0" height="0"> -->
+
+<!-- Post Header -->
+<style type="text/css">
+    header.intro-header{
+        background-image: url('20190120-bg-header.jpg')
+    }
+</style>
+<header class="intro-header">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                          <a class="tag" href="/tags/#技术" title="技术">技术</a>
+                        
+                          <a class="tag" href="/tags/#javascript" title="javascript">javascript</a>
+                        
+                          <a class="tag" href="/tags/#react" title="react">react</a>
+                        
+                          <a class="tag" href="/tags/#redux" title="redux">redux</a>
+                        
+                    </div>
+                    <h1>Redux工作原理初探</h1>
+                    <h2 class="subheading">react+redux，使你的状态管理更轻松</h2>
+                    <span class="meta">
+                        Posted by Dewyzee on
+                        2019-01-20
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+<!-- Post Content -->
+<article>
+    <div class="container">
+        <div class="row">
+
+    <!-- Post Container -->
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+                <blockquote>
+<p>这只是一篇给自己总结的文章</p>
+</blockquote>
+<h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h2><p>对于一直没有中大型react项目实践的我，对于react以及react全家桶一直处于文档的学习以及较浅层面的理解，目前工作所接触的内容也与react关系不大，对于一个在全球范围内如此盛行的前端框架，抽空平时自我修行进阶一下，个人觉得还是有一些必要的。一来可以做一些储备，当某一天有新项目涉及项目选型，或者说某一天需要突然加入到某个react的项目中去，这样也不至于让自己被动，临时抱佛脚总是能解决一些事情，但是大概率问题考虑不全而给自己挖坑。对于复杂一点的项目，react通常是配合状态管理工具一起，比如flux，又比如本文提到的redux。至于我为什么选择进一步学习redux而不是flux，这篇文章<a href="https://imweb.io/topic/57711e37f0a5487b05f325b5" target="_blank" rel="noopener">浅谈 React、Flux 与 Redux</a>可能会比我解释的更清楚，当然技术这东西没有更好，只有更合适。具体选择什么还是要看项目的需求与自己的习惯。</p>
+<h2 id="初探Redux"><a href="#初探Redux" class="headerlink" title="初探Redux"></a>初探Redux</h2><p>本文基于一个计数器的例子来看Redux是如何工作的。这里有一个很简单的例子——计数器</p>
+<p><div style="width: 300px; margin: auto"><img src="counter.png" alt="计数器"></div><br>以下代码实现：</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> React <span class="keyword">from</span> <span class="string">'react'</span>;</span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">Counter</span> <span class="keyword">extends</span> <span class="title">React</span>.<span class="title">Component</span> </span>&#123;</span><br><span class="line">  state = &#123; <span class="attr">count</span>: <span class="number">0</span> &#125;</span><br><span class="line"></span><br><span class="line">  increment = <span class="function"><span class="params">()</span> =&gt;</span> &#123;</span><br><span class="line">    <span class="keyword">this</span>.setState(&#123;</span><br><span class="line">      count: <span class="keyword">this</span>.state.count + <span class="number">1</span></span><br><span class="line">    &#125;);</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  decrement = <span class="function"><span class="params">()</span> =&gt;</span> &#123;</span><br><span class="line">    <span class="keyword">this</span>.setState(&#123;</span><br><span class="line">      count: <span class="keyword">this</span>.state.count - <span class="number">1</span></span><br><span class="line">    &#125;);</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  render() &#123;</span><br><span class="line">    <span class="keyword">return</span> (</span><br><span class="line">      &lt;div&gt;</span><br><span class="line">        &lt;h2&gt;Counter&lt;<span class="regexp">/h2&gt;</span></span><br><span class="line"><span class="regexp">        &lt;div&gt;</span></span><br><span class="line"><span class="regexp">          &lt;button onClick=&#123;this.decrement&#125;&gt;-&lt;/</span>button&gt;</span><br><span class="line">          &lt;span&gt;&#123;<span class="keyword">this</span>.state.count&#125;&lt;<span class="regexp">/span&gt;</span></span><br><span class="line"><span class="regexp">          &lt;button onClick=&#123;this.increment&#125;&gt;+&lt;/</span>button&gt;</span><br><span class="line">        &lt;<span class="regexp">/div&gt;</span></span><br><span class="line"><span class="regexp">      &lt;/</span>div&gt;</span><br><span class="line">    )</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br><span class="line"><span class="keyword">export</span> <span class="keyword">default</span> Counter;</span><br></pre></td></tr></table></figure>
+<p>我们可以快速的回顾下，这里是如何工作的：</p>
+<ul>
+<li><code>count</code>的状态存储在组件<code>Counter</code>中 </li>
+<li>当用户点击按钮‘+’，回调函数<code>increment</code>被触发执行</li>
+<li>在回调函数内部，<code>counter</code>的状态被更新</li>
+<li>状态被更新，React重新渲染<code>Counter</code>组件，更新后的数据会显示在界面上</li>
+</ul>
+<h2 id="快速创建"><a href="#快速创建" class="headerlink" title="快速创建"></a>快速创建</h2><p>你可以快速创建一个项目工程来执行验证</p>
+<ul>
+<li><p>如果你还没有安装<code>create-react-app</code>，可以通过npm全局安装(<code>npm install -g create-react-app</code>)</p>
+</li>
+<li><p>创建项目<code>create-react-app redux-intro</code></p>
+</li>
+<li><p>打开<code>src/index.js</code>并用下面的代码替换掉:</p>
+</li>
+</ul>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">import</span> React <span class="keyword">from</span> <span class="string">'react'</span>;</span><br><span class="line"><span class="keyword">import</span> &#123; render &#125; <span class="keyword">from</span> <span class="string">'react-dom'</span>;</span><br><span class="line"><span class="keyword">import</span> Counter <span class="keyword">from</span> <span class="string">'./Counter'</span>;</span><br><span class="line"></span><br><span class="line"><span class="keyword">const</span> App = <span class="function"><span class="params">()</span> =&gt;</span> (</span><br><span class="line">  &lt;div&gt;</span><br><span class="line">    &lt;Counter /&gt;</span><br><span class="line">  &lt;<span class="regexp">/div&gt;</span></span><br><span class="line"><span class="regexp">);</span></span><br><span class="line"><span class="regexp"></span></span><br><span class="line"><span class="regexp">render(&lt;App /</span>&gt;, <span class="built_in">document</span>.getElementById(<span class="string">'root'</span>));</span><br></pre></td></tr></table></figure>
+<ul>
+<li>使用前面Counter例子中的代码，创建<code>src/Counter.js</code></li>
+</ul>
+<h2 id="React-Redux介绍"><a href="#React-Redux介绍" class="headerlink" title="React Redux介绍"></a>React Redux介绍</h2><p>正如<a href="https://daveceddia.com/what-does-redux-do/" target="_blank" rel="noopener">What Does Redux Do?</a>所描述的，Redux在一个单独的store中管理你应用的状态。然后你可以将状态部分抽离出来作为属性插入到你的组件中。这样可以让你在全局的某个地方管理你的数据，然后直接传递给应用中的任何一个组件，再也不需要一层一层操作来进行属性传递</p>
+<p>为了更方便理解我们后续的步骤，建议先将redux添加到你的项目中<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">yarn add redux react-redux</span><br></pre></td></tr></table></figure></p>
+<p>当然你也可以通过npm安装到项目中去。</p>
+<h3 id="redux-vs-react-redux"><a href="#redux-vs-react-redux" class="headerlink" title="redux vs react-redux"></a>redux vs react-redux</h3><p><code>redux</code>提供了一个store，让你通过它存取数据，并且当数据变化的时候作出响应——但它仅仅限于以上这些。实际上<code>react-redux</code>才提供了让你将React组件分散的状态连接起来的能力。</p>
+<p>这两个库一般都是配套使用，大多数情况下，当大家在React中提到redux的时候，通常指的是这两个一起。本文创建的应用将展示一个redux以及react-redux一起使用的例子。我们先看下从组件中移除state的例子<br><figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> React <span class="keyword">from</span> <span class="string">'react'</span>;</span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">Counter</span> <span class="keyword">extends</span> <span class="title">React</span>.<span class="title">Component</span> </span>&#123;</span><br><span class="line">  increment = <span class="function"><span class="params">()</span> =&gt;</span> &#123;</span><br><span class="line">    <span class="comment">// fill in later</span></span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  decrement = <span class="function"><span class="params">()</span> =&gt;</span> &#123;</span><br><span class="line">    <span class="comment">// fill in later</span></span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  render() &#123;</span><br><span class="line">    <span class="keyword">return</span> (</span><br><span class="line">      &lt;div&gt;</span><br><span class="line">        &lt;h2&gt;Counter&lt;<span class="regexp">/h2&gt;</span></span><br><span class="line"><span class="regexp">        &lt;div&gt;</span></span><br><span class="line"><span class="regexp">          &lt;button onClick=&#123;this.decrement&#125;&gt;-&lt;/</span>button&gt;</span><br><span class="line">          &lt;span&gt;&#123;<span class="keyword">this</span>.props.count&#125;&lt;<span class="regexp">/span&gt;</span></span><br><span class="line"><span class="regexp">          &lt;button onClick=&#123;this.increment&#125;&gt;+&lt;/</span>button&gt;</span><br><span class="line">        &lt;<span class="regexp">/div&gt;</span></span><br><span class="line"><span class="regexp">      &lt;/</span>div&gt;</span><br><span class="line">    )</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">export</span> <span class="keyword">default</span> Counter;</span><br></pre></td></tr></table></figure></p>
+<p>可以观察到，<code>{this.state.count}</code>变为了<code>{this.props.count}</code>。当然到这里还不能正常工作，因为Counter还没有接收到<code>count</code>属性。我们需要注入Redux。</p>
+<p>为了获取到Redux中的count，首先要在顶部引入<code>connect</code></p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> &#123; connect &#125; <span class="keyword">from</span> <span class="string">'react-redux'</span>;</span><br></pre></td></tr></table></figure>
+<p>然后，我们要在Counter组件的底部与Redux创建关联</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// Add this function:</span></span><br><span class="line"><span class="function"><span class="keyword">function</span> <span class="title">mapStateToProps</span>(<span class="params">state</span>) </span>&#123;</span><br><span class="line">  <span class="keyword">return</span> &#123;</span><br><span class="line">    count: state.count</span><br><span class="line">  &#125;;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// Then replace this:</span></span><br><span class="line"><span class="comment">// export default Counter;</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// With this:</span></span><br><span class="line"><span class="keyword">export</span> <span class="keyword">default</span> connect(mapStateToProps)(Counter);</span><br></pre></td></tr></table></figure>
+<p>到这里会有抛错，为什么呢？如果你继续往下看，会发现控制台中会有这样一段关于错误的描述</p>
+<blockquote>
+<p>Could not find “store” in either the context or props of “Connect(Counter)”. Either wrap the root component in a , or explicitly pass “store” as a prop to “Connect(Counter)”.</p>
+</blockquote>
+<p>这是因为<code>connect</code>是从Redux的store中获取数据，我们还没有创建store导致应用无法找到它</p>
+<h3 id="提供一个Store"><a href="#提供一个Store" class="headerlink" title="提供一个Store"></a>提供一个Store</h3><p>Redux为整个应用管理一份全局的状态，通过<code>react-redux</code>中<code>Provider</code>组件来封装整个应用，应用树中的每一个组件都可以通过连接到Redux的store，只要它需要。这意味着，App以及App的子组件，子组件的子组件基于<code>connect</code>封装后都可以连接到Redux的store中。</p>
+<p>想象下，当在一堆煎饼上倒上糖浆，它怎么做到将糖浆渗透到所有煎饼上呢——即使你只是倒在最上面那个煎饼上。在redux中，<code>Provider</code>会为它做这些事情。</p>
+<p>在<code>src/index.js</code>中，引入<code>Provider</code>并在<code>App</code>中包裹起来</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> &#123; Provider &#125; <span class="keyword">from</span> <span class="string">'react-redux'</span>;</span><br><span class="line"></span><br><span class="line">...</span><br><span class="line"></span><br><span class="line"><span class="keyword">const</span> App = <span class="function"><span class="params">()</span> =&gt;</span> (</span><br><span class="line">  &lt;Provider&gt;</span><br><span class="line">    &lt;Counter/&gt;</span><br><span class="line">  &lt;<span class="regexp">/Provider&gt;</span></span><br><span class="line"><span class="regexp">);</span></span><br></pre></td></tr></table></figure>
+<p>做到这里，目前项目依然会抛错。这是因为<code>Provider</code>需要一个store来一起工作。它需要一个store作为prop，我们首先需要创建一个</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> &#123; createStore &#125; <span class="keyword">from</span> <span class="string">'redux'</span>;</span><br><span class="line"></span><br><span class="line"><span class="keyword">const</span> store = createStore();</span><br><span class="line"></span><br><span class="line"><span class="keyword">const</span> App = <span class="function"><span class="params">()</span> =&gt;</span> (</span><br><span class="line">  &lt;Provider store=&#123;store&#125;&gt;</span><br><span class="line">    &lt;Counter/&gt;</span><br><span class="line">  &lt;<span class="regexp">/Provider&gt;</span></span><br><span class="line"><span class="regexp">);</span></span><br></pre></td></tr></table></figure>
+<p>又抛错了，但是这次不同</p>
+<blockquote>
+<p>Expected the reducer to be a function.</p>
+</blockquote>
+<p>到这里我们就会想，Redux有点儿难用。你可能期望通过创建一个store，它就会返回给你一个令人满意的默认值，甚至是一个空对象。事实上错了：Redux会对你state的结构作出零假设。这一切都由你决定。可能是一个对象，也可能是一个数字或者字符串或者任何你所想要的。所以，我们必须要提供一个函数来返回这个state。这个函数就叫做<code>reducer</code>:</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">function</span> <span class="title">reducer</span>(<span class="params"></span>) </span>&#123;</span><br><span class="line">  <span class="comment">// just gonna leave this blank for now</span></span><br><span class="line">  <span class="comment">// which is the same as `return undefined;`</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">const</span> store = createStore(reducer);</span><br></pre></td></tr></table></figure>
+<p>然而，这个时候错误描述变成了这样：</p>
+<blockquote>
+<p>Cannot read property ‘count’ of undefined</p>
+</blockquote>
+<p>这是因为我们需要使用<code>state.count</code>,但是<code>state</code>未定义。Redux期望我们的<code>reducer</code>函数能返回一个<code>state</code>的值。让我们看下当<code>reducer</code>返回一个带有<code>count</code>属性的对象时：<br><figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">function</span> <span class="title">reducer</span>(<span class="params"></span>) </span>&#123;</span><br><span class="line">  <span class="keyword">return</span> &#123;</span><br><span class="line">    count: <span class="number">42</span></span><br><span class="line">  &#125;;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p>这下应用可以正常工作了。。。</p>
+<p>在我们研究counter如何更新之前，先让我们看下之前我们做了些什么:</p>
+<ul>
+<li>编写了一个函数<code>mapStateTpProps</code>: 把Redux状态转换为包含props的对象</li>
+<li>使用<code>react-redux</code>中的<code>connect</code>函数将Redux store与<code>Counter</code>组件创建连接</li>
+<li>创建<code>reducer</code>函数告诉Redux我们的state是什么样子</li>
+<li>通过<code>createStore</code>创建一个store，并把它传递给reducer</li>
+<li>我们将我们的整个应用包裹在<code>Provider</code>组件中，这个组件包含了<code>react-redux</code>，通过<code>prop</code>传递store</li>
+</ul>
+<blockquote>
+<p>写到这里，我相信看过之后会有这样一种感觉，一个带有两个按钮跟数字增减功能的静态页面，为什么要过于复杂的用react以及redux来做？</p>
+</blockquote>
+<p>这个计数器应用虽然简单但是是一个非常好的也是非常易懂的教程，在类似的问题上Redux绝对可以很好的处理。React state在一些简单的问题上表现很出色，但是可能原生JS也会<br>表现得很好。所以要根据自己的需求选择合适的工具，Redux不一定就是适合你需求的工具。下一面部分的内容主要来验证Redux在项目中带来的价值</p>
+<h3 id="初始化State"><a href="#初始化State" class="headerlink" title="初始化State"></a>初始化State</h3><p>我们需要一种方式来告诉Redux来改变counter。上面提到了它会获取当前状态并返回一个新状态，实际上在它们之间还有一个action。关于reducer应该写成下面这种形式</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">function</span> <span class="title">reducer</span>(<span class="params">state, action</span>) </span>&#123;</span><br><span class="line">  <span class="keyword">return</span> &#123;</span><br><span class="line">    count: <span class="number">42</span></span><br><span class="line">  &#125;;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>Redux第一次调用这个函数时state是<code>undefined</code>。这就是为什么要返回一个初始化的state。</p>
+<h3 id="Action"><a href="#Action" class="headerlink" title="Action"></a>Action</h3><p>我们终于说到了参数<code>action</code>。它是什么？它来自于哪里？我们如何使用它来改变counter？</p>
+<p>一个‘action’是一个js对象，用来描述我们即将作出的一次改变。这个js对象唯一需要的就是一个<code>type</code>属性，属性值必须是一个字符串，如下所示<br><figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">&#123;</span><br><span class="line">  type: <span class="string">"INCREMENT"</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p>以及<br><figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">&#123;</span><br><span class="line">  type: <span class="string">"DECREMENT"</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<h3 id="响应Actions"><a href="#响应Actions" class="headerlink" title="响应Actions"></a>响应Actions</h3><p>Reducer的工作是获取当前的状态以及action并计算出新的状态。所以如果reducer接收到一个action类似于<code></code>{type: “INCREMENT” },<br>你想返回什么作为新的状态呢？可以看下下面的例子<br><figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">function</span> <span class="title">reducer</span>(<span class="params">state = initialState, action</span>) </span>&#123;</span><br><span class="line">  <span class="keyword">if</span>(action.type === <span class="string">"INCREMENT"</span>) &#123;</span><br><span class="line">    <span class="keyword">return</span> &#123;</span><br><span class="line">      count: state.count + <span class="number">1</span></span><br><span class="line">    &#125;;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">return</span> state;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p>稍稍处理下，可以在函数内部通过switch来处理多个action<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">function reducer(state = initialState, action) &#123;</span><br><span class="line">  switch(action.type) &#123;</span><br><span class="line">    case &apos;INCREMENT&apos;:</span><br><span class="line">      return &#123;</span><br><span class="line">        count: state.count + 1</span><br><span class="line">      &#125;;</span><br><span class="line">    case &apos;DECREMENT&apos;:</span><br><span class="line">      return &#123;</span><br><span class="line">        count: state.count - 1</span><br><span class="line">      &#125;;</span><br><span class="line">    default:</span><br><span class="line">      return state;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<h3 id="返回一个State"><a href="#返回一个State" class="headerlink" title="返回一个State"></a>返回一个State</h3><p>你会注意到reducer的工作就是返回一个新的state，即使当前状态没有发生任何改变，也意味着在代码逻辑中如果出现switch，千万不要遗漏default</p>
+<h3 id="不要修改State"><a href="#不要修改State" class="headerlink" title="不要修改State"></a>不要修改State</h3><p>另外一件千万不要做的事情是：修改<code>state</code>。State是不可修改的，你不要尝试去修改它，也就是说你不能像这样做<br><figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">function</span> <span class="title">brokenReducer</span>(<span class="params">state = initialState, action</span>) </span>&#123;</span><br><span class="line">  <span class="keyword">switch</span>(action.type) &#123;</span><br><span class="line">    <span class="keyword">case</span> <span class="string">'INCREMENT'</span>:</span><br><span class="line">      <span class="comment">// NO! BAD: this is changing state!</span></span><br><span class="line">      state.count++;</span><br><span class="line">      <span class="keyword">return</span> state;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">case</span> <span class="string">'DECREMENT'</span>:</span><br><span class="line">      <span class="comment">// NO! BAD: this is changing state too!</span></span><br><span class="line">      state.count--;</span><br><span class="line">      <span class="keyword">return</span> state;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">default</span>:</span><br><span class="line">      <span class="comment">// this is fine.</span></span><br><span class="line">      <span class="keyword">return</span> state;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p>你不可以做类似<code>state.foo = 7</code>，或者<code>state.items.push(newItem)</code>，<code>delete state.something</code>。</p>
+<h3 id="Action来自于哪里"><a href="#Action来自于哪里" class="headerlink" title="Action来自于哪里"></a>Action来自于哪里</h3><p>还剩下一个问题：我们需要将action添加到我们reducer函数中继而来增加或者减少我们计数的值。<br>Actions是通过dispatch函数分发的，而dispatch函数是由Redux的store实例提供的。所以你不能通过<code>import {dispatch}</code>来使用它，但可以通过<br><code>store.dispatch(someAction)</code>做到。具体实现可以参考下面的例子<br><figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> React <span class="keyword">from</span> <span class="string">'react'</span>;</span><br><span class="line"><span class="keyword">import</span> &#123; connect &#125; <span class="keyword">from</span> <span class="string">'react-redux'</span>;</span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">Counter</span> <span class="keyword">extends</span> <span class="title">React</span>.<span class="title">Component</span> </span>&#123;</span><br><span class="line">  increment = <span class="function"><span class="params">()</span> =&gt;</span> &#123;</span><br><span class="line">    <span class="keyword">this</span>.props.dispatch(&#123; <span class="attr">type</span>: <span class="string">'INCREMENT'</span> &#125;);</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  decrement = <span class="function"><span class="params">()</span> =&gt;</span> &#123;</span><br><span class="line">    <span class="keyword">this</span>.props.dispatch(&#123; <span class="attr">type</span>: <span class="string">'DECREMENT'</span> &#125;);</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  render() &#123;</span><br><span class="line">    <span class="keyword">return</span> (</span><br><span class="line">      &lt;div&gt;</span><br><span class="line">        &lt;h2&gt;Counter&lt;<span class="regexp">/h2&gt;</span></span><br><span class="line"><span class="regexp">        &lt;div&gt;</span></span><br><span class="line"><span class="regexp">          &lt;button onClick=&#123;this.decrement&#125;&gt;-&lt;/</span>button&gt;</span><br><span class="line">          &lt;span&gt;&#123;<span class="keyword">this</span>.props.count&#125;&lt;<span class="regexp">/span&gt;</span></span><br><span class="line"><span class="regexp">          &lt;button onClick=&#123;this.increment&#125;&gt;+&lt;/</span>button&gt;</span><br><span class="line">        &lt;<span class="regexp">/div&gt;</span></span><br><span class="line"><span class="regexp">      &lt;/</span>div&gt;</span><br><span class="line">    )</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">function</span> <span class="title">mapStateToProps</span>(<span class="params">state</span>) </span>&#123;</span><br><span class="line">  <span class="keyword">return</span> &#123;</span><br><span class="line">    count: state.count</span><br><span class="line">  &#125;;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">export</span> <span class="keyword">default</span> connect(mapStateToProps)(Counter);</span><br></pre></td></tr></table></figure></p>
+
+
+                <hr>
+
+                
+
+                <ul class="pager">
+                    
+                    
+                        <li class="next">
+                            <a href="/2019/01/11/npm-packages-local-debug/" data-toggle="tooltip" data-placement="top" title="npm包本地调试">Next Post &rarr;</a>
+                        </li>
+                    
+                </ul>
+
+                
+
+                
+
+            </div>
+    <!-- Side Catalog Container -->
+        
+
+    <!-- Sidebar Container -->
+
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                <!-- Featured Tags -->
+                
+
+                <!-- Friends Blog -->
+                
+            </div>
+
+        </div>
+    </div>
+</article>
+
+
+
+
+
+
+
+
+
+    <!-- Footer -->
+    <!-- Footer -->
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">
+                
+                
+                
+                    <li>
+                        <a target="_blank" href="https://www.zhihu.com/people/xu-tao-30-69">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa  fa-stack-1x fa-inverse">知</i>
+                            </span>
+                        </a>
+                    </li>
+                
+
+                
+                    <li>
+                        <a target="_blank" href="http://weibo.com/5672336470">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa fa-weibo fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+                
+
+                
+
+                
+                    <li>
+                        <a target="_blank" href="https://github.com/Dewyzee">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa fa-github fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+                
+
+                
+
+                </ul>
+                <p class="copyright text-muted">
+                    Copyright &copy; Dewyzee&#39;s Blog 2019 
+                    <br>
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+<!-- jQuery -->
+<script src="/js/jquery.min.js"></script>
+
+<!-- Bootstrap Core JavaScript -->
+<script src="/js/bootstrap.min.js"></script>
+
+<!-- Custom Theme JavaScript -->
+<script src="/js/hux-blog.min.js"></script>
+
+
+<!-- async load function -->
+<script>
+    function async(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+<!-- 
+     Because of the native support for backtick-style fenced code blocks 
+     right within the Markdown is landed in Github Pages, 
+     From V1.6, There is no need for Highlight.js, 
+     so Huxblog drops it officially.
+
+     - https://github.com/blog/2100-github-pages-now-faster-and-simpler-with-jekyll-3-0  
+     - https://help.github.com/articles/creating-and-highlighting-code-blocks/    
+-->
+<!--
+    <script>
+        async("http://cdn.bootcss.com/highlight.js/8.6/highlight.min.js", function(){
+            hljs.initHighlightingOnLoad();
+        })
+    </script>
+    <link href="http://cdn.bootcss.com/highlight.js/8.6/styles/github.min.css" rel="stylesheet">
+-->
+
+
+<!-- jquery.tagcloud.js -->
+<script>
+    // only load tagcloud.js in tag.html
+    if($('#tag_cloud').length !== 0){
+        async("https://dewyzee.github.io/js/jquery.tagcloud.js",function(){
+            $.fn.tagcloud.defaults = {
+                //size: {start: 1, end: 1, unit: 'em'},
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+<!--fastClick.js -->
+<script>
+    async("https://cdn.bootcss.com/fastclick/1.0.6/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+<!-- Google Analytics -->
+
+
+
+
+<!-- Baidu Tongji -->
+
+
+<!-- Side Catalog -->
+
+
+
+
+
+<!-- Image to hack wechat -->
+<img src="https://dewyzee.github.io/img/icon_wechat.png" width="0" height="0" />
+<!-- Migrate from head to bottom, no longer block render and still work -->
+
+</body>
+
+</html>
